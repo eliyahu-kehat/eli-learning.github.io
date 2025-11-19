@@ -2,6 +2,13 @@ const DEFAULT_GOAL_MINUTES = 6;
 const STORAGE_KEY = 'squat-hang-state';
 
 const goalInput = document.getElementById('goal-minutes');
+const axeAudioElement = document.getElementById('axe-audio');
+const CAPOEIRA_TRACK_URL =
+  'https://cdn.pixabay.com/download/audio/2022/06/26/audio_6991a232540.mp3?filename=capoeira-112448.mp3';
+
+if (axeAudioElement) {
+  hydrateCapoeiraAudio();
+}
 const CIRCLE_RADIUS = 54;
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 
