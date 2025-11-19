@@ -29,7 +29,7 @@ const timerElements = {
 Object.values(timerElements).forEach(({ progress }) => {
   const circumference = CIRCLE_CIRCUMFERENCE.toString();
   progress.style.strokeDasharray = circumference;
-  progress.style.strokeDashoffset = circumference;
+  progress.style.strokeDashoffset = '0';
 });
 
 let state = loadState();
@@ -222,7 +222,7 @@ function updateTimerDisplay(timerKey) {
   elements.toggle.setAttribute('aria-disabled', isComplete ? 'true' : 'false');
   elements.card.classList.toggle('timer-card--complete', isComplete);
 
-  const offset = CIRCLE_CIRCUMFERENCE * (1 - progressRatio);
+  const offset = CIRCLE_CIRCUMFERENCE * progressRatio;
   elements.progress.style.strokeDashoffset = offset;
   elements.progressLabel.textContent = `Goal: ${state.goalMinutes} min`;
 }
@@ -305,3 +305,4 @@ function clampTimersToGoal() {
 function getGoalMs() {
   return state.goalMinutes * 60 * 1000;
 }
+
