@@ -1,54 +1,82 @@
 <!DOCTYPE html>
-<html >
-    
-    <head>
-        <meta charset="utf-8">
-        <link href="styles/style.css" rel="stylesheet">
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=DynaPuff">
-        <title>My test page</title>
-    </head>
-    
-    <body>
-        
-        <h1>This is an h1 header</h1>
-        
-        <img src="images/pika.jfif" alt="My test image">
-        <br>
-        
-        <p id="1">At Mozilla, we're a global community of</p>
-        
-        <ul>
-            <li>technologists</li>
-            <li>thinkers</li>
-            <li>builders</li>
-        </ul>
-        
-        <p id="2">working together ... </p>
-        
-        <p>My cat is <strong>very</strong> grumpy.</p>
-        <br>
-        <p>Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard
-            dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen
-            book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially
-            unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more
-            recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.</p>
-            <p>Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature
-                from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia,
-                looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of
-                the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33
-                of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise
-                on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit
-                amet..", comes from a line in section 1.10.32.</p>
-                
-                <div class="box-class-2">
-                    <p class="box-class-1">
-                        box!
-                    </p>
-                </div>
-                
-                <button>Change user</button>
-                <script src = "scripts/main.js"></script>
-            </body>
-            
-            </html>
-            
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="styles/style.css" rel="stylesheet">
+  <title>Squat & Hang Time Counter</title>
+</head>
+<body>
+  <main class="page">
+    <header class="page__header">
+      <p class="eyebrow">Daily movement</p>
+      <h1>Squat &amp; Hang time counter</h1>
+      <p class="lede">Track two separate stopwatches for your squat and hang sessions. Set a daily goal and keep the tab open to preserve your progress.</p>
+    </header>
+
+    <section class="goal">
+      <div class="goal__label-group">
+        <label class="goal__label" for="goal-minutes">Desired daily time</label>
+        <span class="goal__hint">minutes (applies to each timer)</span>
+      </div>
+      <div class="goal__input-row">
+        <input id="goal-minutes" class="goal__input" type="number" min="1" step="1" value="10" aria-describedby="goal-help">
+        <span id="goal-help" class="goal__support">Adjust this to match your daily target.</span>
+      </div>
+    </section>
+
+    <section class="timers">
+      <div class="timer-card" data-timer="squat">
+        <div class="timer-card__header">
+          <div>
+            <p class="eyebrow">Stopwatch</p>
+            <h2>Squat time</h2>
+          </div>
+          <div class="status-chip" id="status-squat">Paused</div>
+        </div>
+        <div class="timer-card__body">
+          <div class="time-display" id="time-squat">00:00</div>
+          <div class="progress" aria-hidden="true">
+            <div class="progress__bar" id="progress-squat"></div>
+          </div>
+          <p class="progress__label" id="progress-label-squat">0% of daily goal</p>
+          <div class="controls">
+            <button class="btn btn--primary" id="toggle-squat">Start</button>
+            <button class="btn" id="reset-squat">Reset</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="timer-card" data-timer="hang">
+        <div class="timer-card__header">
+          <div>
+            <p class="eyebrow">Stopwatch</p>
+            <h2>Hang time</h2>
+          </div>
+          <div class="status-chip" id="status-hang">Paused</div>
+        </div>
+        <div class="timer-card__body">
+          <div class="time-display" id="time-hang">00:00</div>
+          <div class="progress" aria-hidden="true">
+            <div class="progress__bar" id="progress-hang"></div>
+          </div>
+          <p class="progress__label" id="progress-label-hang">0% of daily goal</p>
+          <div class="controls">
+            <button class="btn btn--primary" id="toggle-hang">Start</button>
+            <button class="btn" id="reset-hang">Reset</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="page__footer">
+      <p>Progress is saved while this tab stays open. Pause, reset, or adjust your goal anytime.</p>
+    </footer>
+  </main>
+
+  <script src="scripts/main.js"></script>
+</body>
+</html>
