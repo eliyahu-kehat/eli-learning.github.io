@@ -3,10 +3,11 @@ const STORAGE_KEY = 'squat-hang-state';
 
 const goalInput = document.getElementById('goal-minutes');
 const axeAudioElement = document.getElementById('axe-audio');
-let axeAudioObjectUrl = null;
+const CAPOEIRA_TRACK_URL =
+  'https://cdn.pixabay.com/download/audio/2022/06/26/audio_6991a232540.mp3?filename=capoeira-112448.mp3';
 
 if (axeAudioElement) {
-  loadEmbeddedAudio();
+  hydrateCapoeiraAudio();
 }
 const CIRCLE_RADIUS = 54;
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
@@ -312,46 +313,12 @@ function getGoalMs() {
   return state.goalMinutes * 60 * 1000;
 }
 
-async function loadEmbeddedAudio() {
-  if (!window.fetch || !window.atob) {
-    console.warn('Embedded audio requires fetch and atob support.');
-    return;
-  }
-
+function hydrateCapoeiraAudio() {
   try {
-    const response = await fetch('scripts/axe-loop.txt', { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`Unexpected status ${response.status}`);
-    }
-    const base64 = (await response.text()).replace(/\s+/g, '');
-    const blob = base64ToBlob(base64, 'audio/wav');
-    axeAudioObjectUrl = URL.createObjectURL(blob);
-    axeAudioElement.src = axeAudioObjectUrl;
+    axeAudioElement.src = CAPOEIRA_TRACK_URL;
+    axeAudioElement.setAttribute('data-track-label', 'Capoeira – Pixabay (CC0)');
     axeAudioElement.load();
-    window.addEventListener('unload', cleanupAudioUrl);
   } catch (error) {
-    console.warn('Could not load berimbau loop.', error);
-  }
-}
-
-function base64ToBlob(base64, contentType) {
-  const byteCharacters = atob(base64);
-  const byteArrays = [];
-  const chunkSize = 2048;
-  for (let offset = 0; offset < byteCharacters.length; offset += chunkSize) {
-    const slice = byteCharacters.slice(offset, offset + chunkSize);
-    const byteNumbers = new Array(slice.length);
-    for (let i = 0; i < slice.length; i += 1) {
-      byteNumbers[i] = slice.charCodeAt(i);
-    }
-    byteArrays.push(new Uint8Array(byteNumbers));
-  }
-  return new Blob(byteArrays, { type: contentType });
-}
-
-function cleanupAudioUrl() {
-  if (axeAudioObjectUrl) {
-    URL.revokeObjectURL(axeAudioObjectUrl);
-    axeAudioObjectUrl = null;
+    console.warn('Could not hydrate Capoeira audio track.', error);
   }
 }
