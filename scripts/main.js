@@ -2,6 +2,14 @@ const DEFAULT_GOAL_MINUTES = 6;
 const STORAGE_KEY = 'squat-hang-state';
 
 const goalInput = document.getElementById('goal-minutes');
+const axeAudioElement = document.getElementById('axe-audio');
+const embeddedAudioSource =
+  (typeof window !== 'undefined' && window.BERIMBAU_LOOP_SRC) || null;
+
+if (axeAudioElement && embeddedAudioSource) {
+  axeAudioElement.src = embeddedAudioSource;
+  axeAudioElement.load();
+}
 const CIRCLE_RADIUS = 54;
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 
@@ -29,7 +37,7 @@ const timerElements = {
 Object.values(timerElements).forEach(({ progress }) => {
   const circumference = CIRCLE_CIRCUMFERENCE.toString();
   progress.style.strokeDasharray = circumference;
-  progress.style.strokeDashoffset = circumference;
+  progress.style.strokeDashoffset = '0';
 });
 
 let state = loadState();
@@ -222,7 +230,7 @@ function updateTimerDisplay(timerKey) {
   elements.toggle.setAttribute('aria-disabled', isComplete ? 'true' : 'false');
   elements.card.classList.toggle('timer-card--complete', isComplete);
 
-  const offset = CIRCLE_CIRCUMFERENCE * (1 - progressRatio);
+  const offset = CIRCLE_CIRCUMFERENCE * progressRatio;
   elements.progress.style.strokeDashoffset = offset;
   elements.progressLabel.textContent = `Goal: ${state.goalMinutes} min`;
 }
