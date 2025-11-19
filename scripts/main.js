@@ -6,16 +6,7 @@ const axeAudioElement = document.getElementById('axe-audio');
 let axeAudioObjectUrl = null;
 
 if (axeAudioElement) {
-  try {
-    axeAudioObjectUrl = createProceduralBerimbauLoop();
-    if (axeAudioObjectUrl) {
-      axeAudioElement.src = axeAudioObjectUrl;
-      axeAudioElement.load();
-      window.addEventListener('unload', cleanupAudioUrl);
-    }
-  } catch (error) {
-    console.warn('Could not generate berimbau loop.', error);
-  }
+  loadEmbeddedAudio();
 }
 const CIRCLE_RADIUS = 54;
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
@@ -321,66 +312,46 @@ function getGoalMs() {
   return state.goalMinutes * 60 * 1000;
 }
 
+async function loadEmbeddedAudio() {
+  if (!window.fetch || !window.atob) {
+    console.warn('Embedded audio requires fetch and atob support.');
+    return;
+  }
+
+  try {
+    const response = await fetch('scripts/axe-loop.txt', { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Unexpected status ${response.status}`);
+    }
+    const base64 = (await response.text()).replace(/\s+/g, '');
+    const blob = base64ToBlob(base64, 'audio/wav');
+    axeAudioObjectUrl = URL.createObjectURL(blob);
+    axeAudioElement.src = axeAudioObjectUrl;
+    axeAudioElement.load();
+    window.addEventListener('unload', cleanupAudioUrl);
+  } catch (error) {
+    console.warn('Could not load berimbau loop.', error);
+  }
+}
+
+function base64ToBlob(base64, contentType) {
+  const byteCharacters = atob(base64);
+  const byteArrays = [];
+  const chunkSize = 2048;
+  for (let offset = 0; offset < byteCharacters.length; offset += chunkSize) {
+    const slice = byteCharacters.slice(offset, offset + chunkSize);
+    const byteNumbers = new Array(slice.length);
+    for (let i = 0; i < slice.length; i += 1) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+    byteArrays.push(new Uint8Array(byteNumbers));
+  }
+  return new Blob(byteArrays, { type: contentType });
+}
+
 function cleanupAudioUrl() {
   if (axeAudioObjectUrl) {
     URL.revokeObjectURL(axeAudioObjectUrl);
     axeAudioObjectUrl = null;
-  }
-}
-
-function createProceduralBerimbauLoop() {
-  if (typeof window === 'undefined' || !window.URL || !URL.createObjectURL) {
-    return null;
-  }
-
-  const sampleRate = 22050;
-  const durationSeconds = 8;
-  const totalSamples = sampleRate * durationSeconds;
-  const headerSize = 44;
-  const bytesPerSample = 2;
-  const buffer = new ArrayBuffer(headerSize + totalSamples * bytesPerSample);
-  const view = new DataView(buffer);
-
-  writeAsciiString(view, 0, 'RIFF');
-  view.setUint32(4, 36 + totalSamples * bytesPerSample, true);
-  writeAsciiString(view, 8, 'WAVE');
-  writeAsciiString(view, 12, 'fmt ');
-  view.setUint32(16, 16, true); // PCM chunk size
-  view.setUint16(20, 1, true); // audio format (PCM)
-  view.setUint16(22, 1, true); // channels
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * bytesPerSample, true);
-  view.setUint16(32, bytesPerSample, true);
-  view.setUint16(34, 8 * bytesPerSample, true);
-  writeAsciiString(view, 36, 'data');
-  view.setUint32(40, totalSamples * bytesPerSample, true);
-
-  const samples = new Int16Array(buffer, headerSize);
-  const patternFrequencies = [320, 247, 392, 320];
-  const beatDuration = 0.75; // seconds per berimbau stroke
-  const swingAmount = 0.04;
-
-  for (let i = 0; i < totalSamples; i += 1) {
-    const t = i / sampleRate;
-    const beatIndex = Math.floor((t / beatDuration) % patternFrequencies.length);
-    const beatProgress = t % beatDuration;
-    const accentEnvelope = Math.exp(-beatProgress * 6);
-    const pitch = patternFrequencies[beatIndex];
-    const swing = 1 + swingAmount * Math.sin(2 * Math.PI * 1.5 * t);
-    const vibrato = 0.015 * Math.sin(2 * Math.PI * 6 * t);
-    const carrier = Math.sin(2 * Math.PI * pitch * (t + vibrato) * swing);
-    const buzz = Math.sin(2 * Math.PI * pitch * 2.1 * t) * 0.25;
-    const noise = (Math.random() * 2 - 1) * 0.05;
-    const sampleValue = (carrier * 0.75 + buzz * 0.25 + noise) * accentEnvelope;
-    const clamped = Math.max(-1, Math.min(1, sampleValue));
-    samples[i] = Math.round(clamped * 32767);
-  }
-
-  return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
-}
-
-function writeAsciiString(view, offset, text) {
-  for (let i = 0; i < text.length; i += 1) {
-    view.setUint8(offset + i, text.charCodeAt(i));
   }
 }

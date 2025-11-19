@@ -282,7 +282,8 @@ body::after {
   stroke-linecap: round;
   stroke-width: 8;
   stroke-dasharray: 339.292;
-  stroke-dashoffset: 339.292;
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 0.3s linear;
   filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.45));
 }
 
