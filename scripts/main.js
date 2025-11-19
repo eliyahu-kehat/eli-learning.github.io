@@ -2,6 +2,12 @@ const DEFAULT_GOAL_MINUTES = 6;
 const STORAGE_KEY = 'squat-hang-state';
 
 const goalInput = document.getElementById('goal-minutes');
+const axeAudioElement = document.getElementById('axe-audio');
+let axeAudioObjectUrl = null;
+
+if (axeAudioElement) {
+  loadEmbeddedAudio();
+}
 const CIRCLE_RADIUS = 54;
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 
@@ -29,7 +35,7 @@ const timerElements = {
 Object.values(timerElements).forEach(({ progress }) => {
   const circumference = CIRCLE_CIRCUMFERENCE.toString();
   progress.style.strokeDasharray = circumference;
-  progress.style.strokeDashoffset = circumference;
+  progress.style.strokeDashoffset = '0';
 });
 
 let state = loadState();
@@ -222,7 +228,7 @@ function updateTimerDisplay(timerKey) {
   elements.toggle.setAttribute('aria-disabled', isComplete ? 'true' : 'false');
   elements.card.classList.toggle('timer-card--complete', isComplete);
 
-  const offset = CIRCLE_CIRCUMFERENCE * (1 - progressRatio);
+  const offset = CIRCLE_CIRCUMFERENCE * progressRatio;
   elements.progress.style.strokeDashoffset = offset;
   elements.progressLabel.textContent = `Goal: ${state.goalMinutes} min`;
 }
@@ -304,4 +310,48 @@ function clampTimersToGoal() {
 
 function getGoalMs() {
   return state.goalMinutes * 60 * 1000;
+}
+
+async function loadEmbeddedAudio() {
+  if (!window.fetch || !window.atob) {
+    console.warn('Embedded audio requires fetch and atob support.');
+    return;
+  }
+
+  try {
+    const response = await fetch('scripts/axe-loop.txt', { cache: 'no-store' });
+    if (!response.ok) {
+      throw new Error(`Unexpected status ${response.status}`);
+    }
+    const base64 = (await response.text()).replace(/\s+/g, '');
+    const blob = base64ToBlob(base64, 'audio/wav');
+    axeAudioObjectUrl = URL.createObjectURL(blob);
+    axeAudioElement.src = axeAudioObjectUrl;
+    axeAudioElement.load();
+    window.addEventListener('unload', cleanupAudioUrl);
+  } catch (error) {
+    console.warn('Could not load berimbau loop.', error);
+  }
+}
+
+function base64ToBlob(base64, contentType) {
+  const byteCharacters = atob(base64);
+  const byteArrays = [];
+  const chunkSize = 2048;
+  for (let offset = 0; offset < byteCharacters.length; offset += chunkSize) {
+    const slice = byteCharacters.slice(offset, offset + chunkSize);
+    const byteNumbers = new Array(slice.length);
+    for (let i = 0; i < slice.length; i += 1) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+    byteArrays.push(new Uint8Array(byteNumbers));
+  }
+  return new Blob(byteArrays, { type: contentType });
+}
+
+function cleanupAudioUrl() {
+  if (axeAudioObjectUrl) {
+    URL.revokeObjectURL(axeAudioObjectUrl);
+    axeAudioObjectUrl = null;
+  }
 }
