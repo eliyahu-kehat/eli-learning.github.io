@@ -313,12 +313,3 @@ function getGoalMs() {
   return state.goalMinutes * 60 * 1000;
 }
 
-function hydrateCapoeiraAudio() {
-  try {
-    axeAudioElement.src = CAPOEIRA_TRACK_URL;
-    axeAudioElement.setAttribute('data-track-label', 'Capoeira – Pixabay (CC0)');
-    axeAudioElement.load();
-  } catch (error) {
-    console.warn('Could not hydrate Capoeira audio track.', error);
-  }
-}
