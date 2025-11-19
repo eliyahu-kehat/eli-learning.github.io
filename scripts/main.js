@@ -2,6 +2,8 @@ const DEFAULT_GOAL_MINUTES = 6;
 const STORAGE_KEY = 'squat-hang-state';
 
 const goalInput = document.getElementById('goal-minutes');
+const CIRCLE_RADIUS = 54;
+const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 
 const timerElements = {
   squat: {
@@ -10,7 +12,6 @@ const timerElements = {
     status: document.getElementById('status-squat'),
     progress: document.getElementById('progress-squat'),
     progressLabel: document.getElementById('progress-label-squat'),
-    remaining: document.getElementById('remaining-squat'),
     toggle: document.getElementById('toggle-squat'),
     reset: document.getElementById('reset-squat'),
   },
@@ -20,11 +21,16 @@ const timerElements = {
     status: document.getElementById('status-hang'),
     progress: document.getElementById('progress-hang'),
     progressLabel: document.getElementById('progress-label-hang'),
-    remaining: document.getElementById('remaining-hang'),
     toggle: document.getElementById('toggle-hang'),
     reset: document.getElementById('reset-hang'),
   },
 };
+
+Object.values(timerElements).forEach(({ progress }) => {
+  const circumference = CIRCLE_CIRCUMFERENCE.toString();
+  progress.style.strokeDasharray = circumference;
+  progress.style.strokeDashoffset = circumference;
+});
 
 let state = loadState();
 let rafId = null;
@@ -50,6 +56,13 @@ Object.entries(timerElements).forEach(([key, elements]) => {
 
 updateAllDisplays();
 resumeIfRunning();
+
+window.addEventListener('focus', resumeIfRunning);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    resumeIfRunning();
+  }
+});
 
 function toggleTimer(timerKey) {
   syncRunningTimers();
@@ -88,6 +101,7 @@ function resetTimer(timerKey) {
 function resumeIfRunning() {
   const now = Date.now();
   let shouldStart = false;
+  let stateChanged = false;
 
   Object.values(state.timers).forEach((timer) => {
     if (timer.running && timer.lastStartedAt) {
@@ -101,11 +115,19 @@ function resumeIfRunning() {
       } else {
         shouldStart = true;
       }
+      stateChanged = true;
     }
   });
 
   if (shouldStart) {
     startTicker();
+  } else if (!anyTimerRunning()) {
+    stopTicker();
+  }
+
+  if (stateChanged) {
+    saveState();
+    updateAllDisplays();
   }
 }
 
@@ -190,7 +212,7 @@ function updateTimerDisplay(timerKey) {
 
   const remainingMs = Math.max(0, goalMs - timer.elapsedMs);
   const completedMs = goalMs - remainingMs;
-  const percent = goalMs === 0 ? 0 : Math.min(100, Math.floor((completedMs / goalMs) * 100));
+  const progressRatio = goalMs === 0 ? 0 : Math.min(1, completedMs / goalMs);
   const isComplete = remainingMs === 0;
 
   elements.time.textContent = formatTime(remainingMs);
@@ -200,11 +222,9 @@ function updateTimerDisplay(timerKey) {
   elements.toggle.setAttribute('aria-disabled', isComplete ? 'true' : 'false');
   elements.card.classList.toggle('timer-card--complete', isComplete);
 
-  elements.progress.style.width = `${percent}%`;
-  elements.progressLabel.textContent = `${percent}% of ${state.goalMinutes} min goal`;
-  elements.remaining.textContent = isComplete
-    ? 'Axé! Goal met.'
-    : `${formatTime(completedMs)} logged • ${formatTime(remainingMs)} left`;
+  const offset = CIRCLE_CIRCUMFERENCE * (1 - progressRatio);
+  elements.progress.style.strokeDashoffset = offset;
+  elements.progressLabel.textContent = `Goal: ${state.goalMinutes} min`;
 }
 
 function anyTimerRunning() {
