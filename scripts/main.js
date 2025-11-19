@@ -2,6 +2,21 @@ const DEFAULT_GOAL_MINUTES = 6;
 const STORAGE_KEY = 'squat-hang-state';
 
 const goalInput = document.getElementById('goal-minutes');
+const axeAudioElement = document.getElementById('axe-audio');
+let axeAudioObjectUrl = null;
+
+if (axeAudioElement) {
+  try {
+    axeAudioObjectUrl = createProceduralBerimbauLoop();
+    if (axeAudioObjectUrl) {
+      axeAudioElement.src = axeAudioObjectUrl;
+      axeAudioElement.load();
+      window.addEventListener('unload', cleanupAudioUrl);
+    }
+  } catch (error) {
+    console.warn('Could not generate berimbau loop.', error);
+  }
+}
 const CIRCLE_RADIUS = 54;
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_RADIUS;
 
@@ -29,7 +44,7 @@ const timerElements = {
 Object.values(timerElements).forEach(({ progress }) => {
   const circumference = CIRCLE_CIRCUMFERENCE.toString();
   progress.style.strokeDasharray = circumference;
-  progress.style.strokeDashoffset = circumference;
+  progress.style.strokeDashoffset = '0';
 });
 
 let state = loadState();
@@ -222,7 +237,7 @@ function updateTimerDisplay(timerKey) {
   elements.toggle.setAttribute('aria-disabled', isComplete ? 'true' : 'false');
   elements.card.classList.toggle('timer-card--complete', isComplete);
 
-  const offset = CIRCLE_CIRCUMFERENCE * (1 - progressRatio);
+  const offset = CIRCLE_CIRCUMFERENCE * progressRatio;
   elements.progress.style.strokeDashoffset = offset;
   elements.progressLabel.textContent = `Goal: ${state.goalMinutes} min`;
 }
@@ -304,4 +319,68 @@ function clampTimersToGoal() {
 
 function getGoalMs() {
   return state.goalMinutes * 60 * 1000;
+}
+
+function cleanupAudioUrl() {
+  if (axeAudioObjectUrl) {
+    URL.revokeObjectURL(axeAudioObjectUrl);
+    axeAudioObjectUrl = null;
+  }
+}
+
+function createProceduralBerimbauLoop() {
+  if (typeof window === 'undefined' || !window.URL || !URL.createObjectURL) {
+    return null;
+  }
+
+  const sampleRate = 22050;
+  const durationSeconds = 8;
+  const totalSamples = sampleRate * durationSeconds;
+  const headerSize = 44;
+  const bytesPerSample = 2;
+  const buffer = new ArrayBuffer(headerSize + totalSamples * bytesPerSample);
+  const view = new DataView(buffer);
+
+  writeAsciiString(view, 0, 'RIFF');
+  view.setUint32(4, 36 + totalSamples * bytesPerSample, true);
+  writeAsciiString(view, 8, 'WAVE');
+  writeAsciiString(view, 12, 'fmt ');
+  view.setUint32(16, 16, true); // PCM chunk size
+  view.setUint16(20, 1, true); // audio format (PCM)
+  view.setUint16(22, 1, true); // channels
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * bytesPerSample, true);
+  view.setUint16(32, bytesPerSample, true);
+  view.setUint16(34, 8 * bytesPerSample, true);
+  writeAsciiString(view, 36, 'data');
+  view.setUint32(40, totalSamples * bytesPerSample, true);
+
+  const samples = new Int16Array(buffer, headerSize);
+  const patternFrequencies = [320, 247, 392, 320];
+  const beatDuration = 0.75; // seconds per berimbau stroke
+  const swingAmount = 0.04;
+
+  for (let i = 0; i < totalSamples; i += 1) {
+    const t = i / sampleRate;
+    const beatIndex = Math.floor((t / beatDuration) % patternFrequencies.length);
+    const beatProgress = t % beatDuration;
+    const accentEnvelope = Math.exp(-beatProgress * 6);
+    const pitch = patternFrequencies[beatIndex];
+    const swing = 1 + swingAmount * Math.sin(2 * Math.PI * 1.5 * t);
+    const vibrato = 0.015 * Math.sin(2 * Math.PI * 6 * t);
+    const carrier = Math.sin(2 * Math.PI * pitch * (t + vibrato) * swing);
+    const buzz = Math.sin(2 * Math.PI * pitch * 2.1 * t) * 0.25;
+    const noise = (Math.random() * 2 - 1) * 0.05;
+    const sampleValue = (carrier * 0.75 + buzz * 0.25 + noise) * accentEnvelope;
+    const clamped = Math.max(-1, Math.min(1, sampleValue));
+    samples[i] = Math.round(clamped * 32767);
+  }
+
+  return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+}
+
+function writeAsciiString(view, offset, text) {
+  for (let i = 0; i < text.length; i += 1) {
+    view.setUint8(offset + i, text.charCodeAt(i));
+  }
 }
