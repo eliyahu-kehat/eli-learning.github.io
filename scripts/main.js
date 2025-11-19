@@ -1,22 +1,26 @@
-const DEFAULT_GOAL_MINUTES = 10;
+const DEFAULT_GOAL_MINUTES = 6;
 const STORAGE_KEY = 'squat-hang-state';
 
 const goalInput = document.getElementById('goal-minutes');
 
 const timerElements = {
   squat: {
+    card: document.querySelector('[data-timer="squat"]'),
     time: document.getElementById('time-squat'),
     status: document.getElementById('status-squat'),
     progress: document.getElementById('progress-squat'),
     progressLabel: document.getElementById('progress-label-squat'),
+    remaining: document.getElementById('remaining-squat'),
     toggle: document.getElementById('toggle-squat'),
     reset: document.getElementById('reset-squat'),
   },
   hang: {
+    card: document.querySelector('[data-timer="hang"]'),
     time: document.getElementById('time-hang'),
     status: document.getElementById('status-hang'),
     progress: document.getElementById('progress-hang'),
     progressLabel: document.getElementById('progress-label-hang'),
+    remaining: document.getElementById('remaining-hang'),
     toggle: document.getElementById('toggle-hang'),
     reset: document.getElementById('reset-hang'),
   },
@@ -26,11 +30,15 @@ let state = loadState();
 let rafId = null;
 let lastFrameTime = null;
 
+clampTimersToGoal();
 goalInput.value = state.goalMinutes;
+
 goalInput.addEventListener('input', (event) => {
-  const value = Math.max(1, Number(event.target.value) || DEFAULT_GOAL_MINUTES);
+  const numericValue = Number.parseInt(event.target.value, 10);
+  const value = Math.max(1, Number.isNaN(numericValue) ? DEFAULT_GOAL_MINUTES : numericValue);
   state.goalMinutes = value;
   goalInput.value = value;
+  clampTimersToGoal();
   saveState();
   updateAllDisplays();
 });
@@ -40,13 +48,17 @@ Object.entries(timerElements).forEach(([key, elements]) => {
   elements.reset.addEventListener('click', () => resetTimer(key));
 });
 
-// Kick off UI with persisted state
 updateAllDisplays();
 resumeIfRunning();
 
 function toggleTimer(timerKey) {
   syncRunningTimers();
   const timer = state.timers[timerKey];
+  const goalMs = getGoalMs();
+  if (!timer.running && timer.elapsedMs >= goalMs) {
+    return;
+  }
+
   timer.running = !timer.running;
   timer.lastStartedAt = timer.running ? Date.now() : null;
 
@@ -81,7 +93,14 @@ function resumeIfRunning() {
     if (timer.running && timer.lastStartedAt) {
       timer.elapsedMs += now - timer.lastStartedAt;
       timer.lastStartedAt = now;
-      shouldStart = true;
+      const goalMs = getGoalMs();
+      if (timer.elapsedMs >= goalMs) {
+        timer.elapsedMs = goalMs;
+        timer.running = false;
+        timer.lastStartedAt = null;
+      } else {
+        shouldStart = true;
+      }
     }
   });
 
@@ -116,7 +135,14 @@ function updateFrame(timestamp) {
     if (timer.running) {
       timer.elapsedMs += delta;
       timer.lastStartedAt = Date.now();
-      runningCount += 1;
+      const goalMs = getGoalMs();
+      if (timer.elapsedMs >= goalMs) {
+        timer.elapsedMs = goalMs;
+        timer.running = false;
+        timer.lastStartedAt = null;
+      } else {
+        runningCount += 1;
+      }
     }
     updateTimerDisplay(timerKey);
   });
@@ -125,6 +151,7 @@ function updateFrame(timestamp) {
     saveState();
     rafId = requestAnimationFrame(updateFrame);
   } else {
+    saveState();
     stopTicker();
   }
 }
@@ -138,6 +165,12 @@ function syncRunningTimers() {
     if (timer.running) {
       timer.elapsedMs += delta;
       timer.lastStartedAt = Date.now();
+      const goalMs = getGoalMs();
+      if (timer.elapsedMs >= goalMs) {
+        timer.elapsedMs = goalMs;
+        timer.running = false;
+        timer.lastStartedAt = null;
+      }
     }
   });
 }
@@ -149,16 +182,29 @@ function updateAllDisplays() {
 function updateTimerDisplay(timerKey) {
   const timer = state.timers[timerKey];
   const elements = timerElements[timerKey];
-  const displayMs = timer.running && lastFrameTime === null ? timer.elapsedMs : timer.elapsedMs;
+  const goalMs = getGoalMs();
 
-  elements.time.textContent = formatTime(displayMs);
-  elements.status.textContent = timer.running ? 'Running' : 'Paused';
+  if (timer.elapsedMs > goalMs) {
+    timer.elapsedMs = goalMs;
+  }
+
+  const remainingMs = Math.max(0, goalMs - timer.elapsedMs);
+  const completedMs = goalMs - remainingMs;
+  const percent = goalMs === 0 ? 0 : Math.min(100, Math.floor((completedMs / goalMs) * 100));
+  const isComplete = remainingMs === 0;
+
+  elements.time.textContent = formatTime(remainingMs);
+  elements.status.textContent = timer.running ? 'Flowing' : isComplete ? 'Complete' : 'Paused';
   elements.toggle.textContent = timer.running ? 'Pause' : 'Start';
+  elements.toggle.disabled = isComplete;
+  elements.toggle.setAttribute('aria-disabled', isComplete ? 'true' : 'false');
+  elements.card.classList.toggle('timer-card--complete', isComplete);
 
-  const goalMs = state.goalMinutes * 60 * 1000;
-  const percent = Math.min(100, Math.floor((timer.elapsedMs / goalMs) * 100));
   elements.progress.style.width = `${percent}%`;
-  elements.progressLabel.textContent = `${percent}% of daily goal`;
+  elements.progressLabel.textContent = `${percent}% of ${state.goalMinutes} min goal`;
+  elements.remaining.textContent = isComplete
+    ? 'Axé! Goal met.'
+    : `${formatTime(completedMs)} logged • ${formatTime(remainingMs)} left`;
 }
 
 function anyTimerRunning() {
@@ -210,7 +256,7 @@ function normalizeState(rawState) {
   const safeState = createDefaultState();
 
   if (typeof rawState.goalMinutes === 'number' && rawState.goalMinutes > 0) {
-    safeState.goalMinutes = rawState.goalMinutes;
+    safeState.goalMinutes = Math.floor(rawState.goalMinutes);
   }
 
   ['squat', 'hang'].forEach((key) => {
@@ -223,4 +269,19 @@ function normalizeState(rawState) {
   });
 
   return safeState;
+}
+
+function clampTimersToGoal() {
+  const goalMs = getGoalMs();
+  Object.values(state.timers).forEach((timer) => {
+    if (timer.elapsedMs > goalMs) {
+      timer.elapsedMs = goalMs;
+      timer.running = false;
+      timer.lastStartedAt = null;
+    }
+  });
+}
+
+function getGoalMs() {
+  return state.goalMinutes * 60 * 1000;
 }
